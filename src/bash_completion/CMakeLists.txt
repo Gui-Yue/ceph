@@ -11,5 +11,5 @@ if(WITH_RADOSGW)
 endif()
 
 install(FILES ${completions}
-  DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/bash_completion.d)
+  DESTINATION /usr/share/bash-completion/completions)
 

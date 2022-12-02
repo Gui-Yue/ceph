@@ -1,8 +1,13 @@
 # detect SIMD extensions
 #
+# HAVE_ARM
 # HAVE_ARMV8_CRC
+# HAVE_ARMV8_CRC_CRYPTO_INTRINSICS
+# HAVE_ARMV8_CRYPTO
 # HAVE_ARMV8_SIMD
 # HAVE_ARM_NEON
+#
+# HAVE_INTEL
 # HAVE_INTEL_SSE
 # HAVE_INTEL_SSE2
 # HAVE_INTEL_SSE3
@@ -10,6 +15,10 @@
 # HAVE_INTEL_PCLMUL
 # HAVE_INTEL_SSE4_1
 # HAVE_INTEL_SSE4_2
+#
+# HAVE_PPC64LE
+# HAVE_PPC64
+# HAVE_PPC
 #
 # SIMD_COMPILE_FLAGS
 #
@@ -40,11 +49,14 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64")
 
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "arm|ARM")
   set(HAVE_ARM 1)
-  CHECK_C_COMPILER_FLAG(-mfpu=neon HAVE_ARM_NEON)
-  if(HAVE_ARM_NEON)
-    set(SIMD_COMPILE_FLAGS "${SIMD_COMPILE_FLAGS} -mfpu=neon")
+  if(CMAKE_LIBRARY_ARCHITECTURE EQUAL "arm-linux-gnueabi")
+    set(SIMD_COMPILE_FLAGS "${SIMD_COMPILE_FLAGS} --with-arch=armv5te --with-float=soft")
+  else()
+    CHECK_C_COMPILER_FLAG(-mfpu=neon HAVE_ARM_NEON)
+    if(HAVE_ARM_NEON)
+      set(SIMD_COMPILE_FLAGS "${SIMD_COMPILE_FLAGS} -mfpu=neon")
+    endif()
   endif()
-
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "i386|i686|amd64|x86_64|AMD64")
   set(HAVE_INTEL 1)
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "i686|amd64|x86_64|AMD64")
@@ -79,19 +91,20 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "i386|i686|amd64|x86_64|AMD64")
       endif()
     endif(CMAKE_SYSTEM_PROCESSOR MATCHES "amd64|x86_64|AMD64")
   endif(CMAKE_SYSTEM_PROCESSOR MATCHES "i686|amd64|x86_64|AMD64")
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(powerpc|ppc)64|(powerpc|ppc)64le")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(powerpc|ppc)")
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "(powerpc|ppc)64le")
     set(HAVE_PPC64LE 1)
     message(STATUS " we are ppc64le")
-  else()
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "(powerpc|ppc)64")
     set(HAVE_PPC64 1)
     message(STATUS " we are ppc64")
-  endif(CMAKE_SYSTEM_PROCESSOR MATCHES "(powerpc|ppc)64le")
+  else()
+    set(HAVE_PPC 1)
+  endif()
   CHECK_C_COMPILER_FLAG("-maltivec" HAS_ALTIVEC)
   if(HAS_ALTIVEC)
     message(STATUS " HAS_ALTIVEC yes")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -maltivec")
-    set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -maltivec")
+    add_compile_options(-maltivec)
   endif()
   CHECK_C_COMPILER_FLAG("-mcpu=power8" HAVE_POWER8)
   if(HAVE_POWER8)

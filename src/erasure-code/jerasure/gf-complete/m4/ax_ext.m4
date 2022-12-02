@@ -19,10 +19,17 @@ AC_DEFUN([AX_EXT],
       ;;
 
     arm*)
-      AC_CACHE_CHECK([whether NEON is enabled], [ax_cv_have_neon_ext], [ax_cv_have_neon_ext=yes])
-      if test "$ax_cv_have_neon_ext" = yes; then
-        AX_CHECK_COMPILE_FLAG(-mfpu=neon, [SIMD_FLAGS="$SIMD_FLAGS -mfpu=neon -DARM_NEON"], [ax_cv_have_neon_ext=no])
-      fi
+      case $host_cpu in
+          arm-linux-gnueabi)
+            AX_CHECK_COMPILE_FLAG(-mfpu=soft, [SIMD_FLAGS="$SIMD_FLAGS -mfpu=soft -march=armv5te"], [ax_cv_have_neon_ext=no])
+          ;;
+          *)
+            AC_CACHE_CHECK([whether NEON is enabled], [ax_cv_have_neon_ext], [ax_cv_have_neon_ext=yes])
+            if test "$ax_cv_have_neon_ext" = yes; then
+              AX_CHECK_COMPILE_FLAG(-mfpu=neon, [SIMD_FLAGS="$SIMD_FLAGS -mfpu=neon -DARM_NEON"], [ax_cv_have_neon_ext=no])
+            fi
+          ;;
+      esac
       ;;
 
     powerpc*)

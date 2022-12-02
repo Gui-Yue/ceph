@@ -1,17 +1,20 @@
-#!@PYTHON_EXECUTABLE@
+#!@Python3_EXECUTABLE@
 # -*- mode:python -*-
 # vim: ts=4 sw=4 smarttab expandtab
 
 import argparse
+import grp
 import logging
 import os
+import pwd
+import signal
 import socket
 import subprocess
 import sys
 import time
 
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+log = logging.getLogger('ceph-crash')
 
 auth_names = ['client.crash.%s' % socket.gethostname(),
               'client.crash',
@@ -29,6 +32,10 @@ def parse_args():
     parser.add_argument(
         '--name', '-n',
         help='ceph name to authenticate as (default: try client.crash, client.admin)')
+    parser.add_argument(
+        '--log-level', '-l',
+        help='log level output (default: INFO), support INFO or DEBUG')
+
     return parser.parse_args()
 
 
@@ -40,14 +47,14 @@ def post_crash(path):
                   '-n', n,
                   'crash', 'post', '-i', '-'],
             stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
         f = open(os.path.join(path, 'meta'), 'rb')
-        stdout, stderr = pr.communicate(input=f.read())
+        (_, stderr) = pr.communicate(input=f.read())
+        stderr = stderr.decode()
         rc = pr.wait()
         f.close()
-        if rc != 0:
+        if rc != 0 or stderr != "":
             log.warning('post %s as %s failed: %s' % (path, n, stderr))
         if rc == 0:
             break
@@ -75,9 +82,37 @@ def scrape_path(path):
                     (metapath, p, os.path.join('posted/', p))
                 )
 
+def handler(signum):
+    print('*** Interrupted with signal %d ***' % signum)
+    sys.exit(0)
+
+def drop_privs():
+    if os.getuid() == 0:
+        try:
+            ceph_uid = pwd.getpwnam("ceph").pw_uid
+            ceph_gid = grp.getgrnam("ceph").gr_gid
+            os.setgroups([])
+            os.setgid(ceph_gid)
+            os.setuid(ceph_uid)
+        except Exception as e:
+            log.error(f"Unable to drop privileges: {e}")
+            sys.exit(1)
+
 
 def main():
+    global auth_names
+
+    # run as unprivileged ceph user
+    drop_privs()
+
+    # exit code 0 on SIGINT, SIGTERM
+    signal.signal(signal.SIGINT, handler)
+    signal.signal(signal.SIGTERM, handler)
+
     args = parse_args()
+    if args.log_level == 'DEBUG':
+        log.setLevel(logging.DEBUG)
+
     postdir = os.path.join(args.path, 'posted')
     if args.name:
         auth_names = [args.name]
@@ -88,7 +123,10 @@ def main():
 
     log.info("monitoring path %s, delay %ds" % (args.path, args.delay * 60.0))
     while True:
-        scrape_path(args.path)
+        try:
+            scrape_path(args.path)
+        except Exception as e:
+            log.error(f"Error scraping {args.path}: {e}")
         if args.delay == 0:
             sys.exit(0)
         time.sleep(args.delay * 60)

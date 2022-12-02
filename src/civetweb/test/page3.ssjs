@@ -21,6 +21,7 @@ opts = [
 "document_root",
 "ssl_certificate",
 "num_threads",
+"max_connections",
 "run_as_user",
 "url_rewrite_patterns",
 "hide_files_patterns",

@@ -11,7 +11,7 @@ function(check_cxx_atomics var)
 #include <atomic>
 #include <cstdint>
 
-#if __s390x__
+#if defined(__s390x__) || (defined(__mips__) && _MIPS_SIM ==_ABI64 )
 // Boost needs 16-byte atomics for tagged pointers.
 // These are implemented via inline instructions on the platform
 // if 16-byte alignment can be proven, and are delegated to libatomic
@@ -32,7 +32,7 @@ int main() {
   std::atomic<uint16_t> w2;
   std::atomic<uint32_t> w4;
   std::atomic<uint64_t> w8;
-  return w1 + w2 + w4 + w8;
+  return ++w1 + ++w2 + ++w4 + ++w8;
 }
 " ${var})
 endfunction(check_cxx_atomics)
